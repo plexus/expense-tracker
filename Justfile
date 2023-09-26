@@ -1,0 +1,2 @@
+deploy:
+  surge .

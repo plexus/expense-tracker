@@ -28,9 +28,12 @@
 (defonce style-el (doto (dom:dom js:document [:style])
                     ((partial dom:append js:document.head))))
 
-(defn style! [s]
-  (set! (.-innerHTML style-el) (css s))
-  nil)
 
-(style! [:.main_app {:display "flex"
-                     :flex-direction "column"}])
+(defn clear-styles! []
+  (set! (.-innerHTML style-el) ""))
+
+(defn style! [s]
+  (set! (.-innerHTML style-el) (str
+                                 (.-innerHTML style-el)
+                                 (css s)))
+  nil)

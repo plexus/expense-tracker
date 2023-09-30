@@ -3,6 +3,7 @@
     piglet:dom
     piglet:reactive
     piglet:web/ui
+    piglet:string
     styling
     supabase))
 
@@ -28,7 +29,13 @@
 (defn ^:async supabase-fetch [request-method path opts]
   (when (< (* 1000 (- @!expires-at 300)) (js:Date.now))
     (store-auth-result! (await (.json (await (supabase:refresh-token! @!refresh-token))))))
-  (.json (await (supabase:supabase-fetch request-method path (assoc opts :token @!access-token)))))
+  (let [response (await (supabase:supabase-fetch request-method path (assoc opts :token @!access-token)))
+        headers (into {} (:headers response))]
+    (await
+      (if (and (= 200 (:status response))
+            (string:includes? (get headers "content-type" "") "application/json"))
+        (.json response)
+        response))))
 
 (defn ^:async fetch-expenses! []
   (reset! !expenses (await (supabase-fetch :GET "/rest/v1/expenses?select=*" {}))))
@@ -107,8 +114,8 @@
    [:.amount {:float "right"}]])
 
 (defn sort-by [key-fn arr]
-  (.sort (js:Array.from arr) (fn [this that]
-                               (< (key-fn this) (key-fn that)))))
+  (.sort (js:Array.from (or arr [])) (fn [this that]
+                                       (< (key-fn this) (key-fn that)))))
 
 (defc main-panel []
   [:main
@@ -169,3 +176,8 @@
 
 (web/ui:render
   (dom:el-by-id js:document "app") [app])
+
+(js:requestAnimationFrame
+  (fn []
+    (when @!access-token
+      (fetch-expenses!))))

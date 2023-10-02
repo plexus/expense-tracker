@@ -1,0 +1,10 @@
+{
+  "devDependencies": {
+    "@babel/cli": "^7.23.0",
+    "@babel/core": "^7.23.0"
+  },
+  "dependencies": {
+    "astring": "^1.8.6",
+    "rollup": "^3.29.4"
+  }
+}

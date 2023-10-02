@@ -174,8 +174,9 @@
      [main-panel]
      [login-panel])])
 
-(web/ui:render
-  (dom:el-by-id js:document "app") [app])
+(defonce root (dom:el-by-id js:document "app"))
+(set! (.-innerHTML root) "")
+(web/ui:render root [app])
 
 (js:requestAnimationFrame
   (fn []

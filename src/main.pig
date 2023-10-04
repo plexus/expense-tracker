@@ -53,6 +53,14 @@
 (dom:append js:document.head
   (dom:dom js:document [:link {:rel "stylesheet" :href "fonts.css"}]))
 
+(defn start-of-week [date]
+  (doto (js:Date. date)
+    (.setDate (- (.getDate date) (.getDay date) -1))
+    (.setHours 0)
+    (.setMinutes 0)
+    (.setSeconds 0)
+    (.setMilliseconds 0)))
+
 (defn form-data [form]
   (into {}
     (map (juxt (comp keyword first) second)
@@ -109,24 +117,48 @@
    [:.entries
     {:align-self "flex-start"
      :width "100%"
-     :padding "1rem"}]
-   [:.description {:padding "0 1rem"}]
-   [:.amount {:float "right"}]])
+     :padding "1rem"
+     :display "table"}
+    [:>div {:display "table-row"
+            :background-color "hsla(0,100%,95%,1)"
+            :padding "0.9rem 0"}]
+    [">div:nth-child(2n+1)" {:background-color "hsla(150,100%,95%,1)"}]]
+   [:span {:display "table-cell"
+           :padding "0.2rem"}]
+   [:.week-head {:margin-top "2rem"
+                 :padding "1rem"
+                 :background-color "hsla(200,100%,80%,1)"}]])
 
 (defn sort-by [key-fn arr]
   (.sort (js:Array.from (or arr [])) (fn [this that]
                                        (< (key-fn this) (key-fn that)))))
 
+(defn group-by [key-fn arr]
+  (reduce (fn [acc o]
+            (update acc (key-fn o) (fnil conj []) o))
+    {} arr))
+
+(defn total [entries]
+  (/ (apply + (map :amount entries)) 100))
+
 (defc main-panel []
-  [:main
-   [add-entry-form]
-   [:div "Total: €" (/ (apply + (map :amount @!expenses)) 100)]
-   [:div.entries
-    (for [{:keys [created_at description amount]} (sort-by :created_at @!expenses)]
-      [:div
-       [:span.created-at (.slice created_at 0 10)]
-       [:span.description description] " "
-       [:span.amount "€" (/ amount 100)] " "])]])
+  (let [by-week (group-by (comp
+                            (fn [d](.toISOString d))
+                            start-of-week
+                            (fn [d] (js:Date. d))
+                            :created_at) @!expenses)]
+    [:main
+     [add-entry-form]
+     [:div "This week €" (total (get by-week (.toISOString (start-of-week (js:Date.)))))]
+     [:div "Total: €" (total @!expenses)]
+     (for [[week-start entries] (sort-by first by-week)]
+       [:span.week-head "Week of " (.slice week-start 0 10) " (€" (total entries) ")"]
+       [:div.entries
+        (for [{:keys [created_at description amount]} (sort-by :created_at entries)]
+         [:div
+          [:span.created-at (.slice created_at 0 10)]
+          [:span.description description] " "
+          [:span.amount "€" (/ amount 100)] " "])])]))
 
 (styling:style!
   [:.main_login-panel
@@ -175,10 +207,14 @@
      [login-panel])])
 
 (defonce root (dom:el-by-id js:document "app"))
-(set! (.-innerHTML root) "")
+
+(when-let [spinner (dom:el-by-id js:document "spinner")]
+  (.remove spinner))
+
 (web/ui:render root [app])
 
-(js:requestAnimationFrame
-  (fn []
-    (when @!access-token
-      (fetch-expenses!))))
+(defonce initial-fetch
+  (js:requestAnimationFrame
+    (fn []
+      (when @!access-token
+        (fetch-expenses!)))))
